@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Retail Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+</head>
+<body>
+    <main class="page">
+        <header class="header card-surface">
+            <div>
+                <p class="eyebrow">Retail Insights</p>
+                <h1>Smart Retail Dashboard</h1>
+                <p class="subtext">
+                    Monitor products, identify dead stock, and act on smart suggestions.
+                </p>
+            </div>
+            <button id="refresh-button" type="button">Refresh Data</button>
+        </header>
+
+        <section class="stats">
+            <article class="stat-card card-surface">
+                <div class="stat-top">
+                    <span class="stat-icon icon-products" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" class="icon-svg">
+                            <path d="M4 7.5 12 4l8 3.5-8 3.5L4 7.5Zm1.5 3.2L11 13v7l-5.5-2.3V10.7Zm13 0V17.7L13 20v-7l5.5-2.3Z"></path>
+                        </svg>
+                    </span>
+                    <h2>Total Products</h2>
+                </div>
+                <p id="total-products" class="stat-number">0</p>
+            </article>
+            <article class="stat-card card-surface">
+                <div class="stat-top">
+                    <span class="stat-icon icon-dead" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" class="icon-svg">
+                            <path d="M12 3a9 9 0 1 0 9 9 9 9 0 0 0-9-9Zm1 5v6h-2V8h2Zm0 8v2h-2v-2h2Z"></path>
+                        </svg>
+                    </span>
+                    <h2>Dead Stock Count</h2>
+                </div>
+                <p id="dead-stock-count" class="stat-number">0</p>
+            </article>
+            <article class="stat-card card-surface">
+                <div class="stat-top">
+                    <span class="stat-icon icon-value" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" class="icon-svg">
+                            <path d="M12 2c2.8 0 5.3 1 7.1 2.9A9.9 9.9 0 0 1 22 12c0 2.8-1 5.2-2.9 7.1A9.7 9.7 0 0 1 12 22 10 10 0 0 1 4.9 4.9 9.6 9.6 0 0 1 12 2Zm.7 4.2h-1.5V8h-1.7v1.8h1.7v4.4c0 1.8 1.2 2.9 3.2 2.9h1.1v-1.7h-.9c-1 0-1.4-.4-1.4-1.3V9.8h2.5V8h-2.5V6.2Z"></path>
+                        </svg>
+                    </span>
+                    <h2>Total Value</h2>
+                </div>
+                <p id="total-value" class="stat-number">$0.00</p>
+            </article>
+        </section>
+
+        <section class="filters card-surface" aria-label="Category Filters">
+            <h2>Categories</h2>
+            <div id="category-filters" class="filter-group" role="tablist">
+                <button class="filter-btn active" data-category="All" type="button">All</button>
+                <button class="filter-btn" data-category="Grocery" type="button">Grocery</button>
+                <button class="filter-btn" data-category="Dairy" type="button">Dairy</button>
+                <button class="filter-btn" data-category="Cold Drinks" type="button">Cold Drinks</button>
+                <button class="filter-btn" data-category="Namkeen" type="button">Namkeen</button>
+            </div>
+        </section>
+
+        <section class="products">
+            <div class="products-head">
+                <h2>Product Grid</h2>
+                <p id="results-count">0 items</p>
+            </div>
+            <div id="product-grid" class="product-grid" aria-live="polite">
+                <article class="state-card">Loading data...</article>
+            </div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
