@@ -1,63 +1,49 @@
 # Finverse
 
-Finverse is a Flask + SQLite retail intelligence project that helps identify dead stock, recommend tactical offers, suggest bundles, and visualize product urgency in a dashboard.
+Finverse is a full-stack Flask project for retail inventory intelligence. It helps teams detect dead stock, prioritize expiring inventory, generate offer actions, and monitor recovery potential from a visual dashboard.
 
-The app includes:
+## Highlights
 
-- CRUD APIs for product management
-- rule-based dead stock detection
-- dynamic offer generation (B1G1, flat discount, bundle, no action)
-- pricing breakdown per offer type
-- bundle suggestion engine
-- dashboard analytics endpoints
-- sample data seeding and scheduler-based daily analysis snapshots
+- Product CRUD APIs
+- Dead stock detection based on sales and unsold duration
+- Offer recommendation engine (`BUY_1_GET_1`, `FLAT_40_OFF`, `BUY_2_GET_1`, `BUNDLE`, `NO_ACTION`)
+- Bundle suggestion engine with keyword and category fallback logic
+- Dashboard analytics for stock health and recovery potential
+- Daily analysis snapshot generator for scheduled reporting
 
 ## Table of Contents
 
-1. Overview
-2. Tech Stack
-3. Project Structure
-4. Data Model
-5. Business Rules
-6. Local Setup
-7. Running the Application
-8. API Reference
-9. Frontend Behavior
-10. Data Seeding
-11. Daily Analysis Scheduler
-12. Configuration
-13. Troubleshooting
-14. Deployment Notes
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Data Model](#data-model)
+- [Business Rules](#business-rules)
+- [Quick Start](#quick-start)
+- [Run the App](#run-the-app)
+- [API Reference](#api-reference)
+- [Frontend Dashboard](#frontend-dashboard)
+- [Sample Data Generator](#sample-data-generator)
+- [Daily Analysis Scheduler](#daily-analysis-scheduler)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [Production Notes](#production-notes)
 
-## 1. Overview
+## Architecture
 
-Finverse solves a common retail problem: inventory that is not moving fast enough, especially products close to expiry.
+Finverse follows a clean layered structure:
 
-It evaluates each product using:
+- `routes/` handles HTTP request/response contracts
+- `services/` contains business logic and recommendation rules
+- `models.py` defines SQLAlchemy entities
+- `static/` + `templates/` provide the UI
 
-- sales and unsold-day thresholds
-- stock pressure
-- expiry urgency
+Core flow:
 
-Based on these signals, the system assigns status and offer actions such as:
+1. Product data is stored in SQLite.
+2. APIs compute dead stock, urgency, offers, and pricing details.
+3. Frontend consumes `GET /products` and renders product intelligence cards.
+4. Scheduler can periodically persist analysis snapshots to JSON.
 
-- `BUY_1_GET_1`
-- `FLAT_40_OFF`
-- `BUY_2_GET_1`
-- `BUNDLE`
-- `NO_ACTION`
-
-## 2. Tech Stack
-
-- Backend: Flask 3
-- ORM: Flask-SQLAlchemy
-- Database: SQLite (`instance/products.db`)
-- Frontend: HTML, CSS, vanilla JavaScript
-- Automation: Python script loop for periodic daily analysis
-
-Dependencies are pinned in `requirements.txt`.
-
-## 3. Project Structure
+## Project Structure
 
 ```text
 .
@@ -85,72 +71,67 @@ Dependencies are pinned in `requirements.txt`.
 |   `-- templates/
 |       `-- index.html
 |-- config.py
-|-- daily_analysis_scheduler.py
-|-- requirements.txt
 |-- run.py
+|-- requirements.txt
 |-- seed_sample_products.py
+|-- daily_analysis_scheduler.py
 `-- instance/
     `-- daily_analysis_snapshot.json
 ```
 
-## 4. Data Model
+## Data Model
 
-`Product` model (`app/models.py`) fields:
+`Product` (`app/models.py`) fields:
 
-- `id` (integer, primary key)
+- `id` (int, primary key)
 - `name` (string, required)
 - `category` (string, required)
 - `price` (float, required)
-- `stock_quantity` (integer, required)
-- `last_sold_date` (date, nullable)
-- `expiry_date` (date, nullable)
+- `stock_quantity` (int, required)
+- `last_sold_date` (date, optional)
+- `expiry_date` (date, optional in schema, required by create API)
 - `total_sales` (float, required)
 
-`to_dict()` also returns computed fields:
+Computed output fields are also returned in API responses, including `days_unsold`, `days_to_expire`, `status`, `offer_type`, and pricing breakdown metrics.
 
-- `days_to_expire`
-- `expiry_label`
+### Startup Schema Compatibility
 
-### Schema evolution behavior
-
-At startup, `create_app()` runs `db.create_all()` and also checks for missing `expiry_date` on existing `products` tables. If missing, it runs:
+On startup, the app checks if the `products` table is missing `expiry_date`. If missing, it applies:
 
 ```sql
 ALTER TABLE products ADD COLUMN expiry_date DATE
 ```
 
-This enables lightweight backward compatibility for older local DB files.
+## Business Rules
 
-## 5. Business Rules
+### Dead Stock Criteria
 
-### Dead stock rule
-
-A product is dead stock when all conditions are true:
+Product is marked dead stock when all are true:
 
 - `total_sales < sales_threshold` (default `10`)
 - `days_unsold > days_threshold` (default `15`)
-- `last_sold_date` is available
+- `last_sold_date` exists
 
-### Discount recommendation rule (`/dead-stock/discounts`)
+### Discount Suggestion
+
+`GET /dead-stock/discounts` rules:
 
 - `days_unsold > 30` -> `30%`
 - `15 <= days_unsold <= 30` -> `20%`
 - otherwise -> `10%`
-- if `stock_quantity > high_stock_threshold` (default `100`) -> add `5%`
+- if `stock_quantity > high_stock_threshold` (default `100`) -> `+5%`
 
-### Offer generation rule (`/products`)
+### Offer Type Priority
 
-For each product, Finverse computes offer type in priority order:
+Applied in this order:
 
 1. dead stock and `days_to_expire <= 5` -> `BUY_1_GET_1`
 2. dead stock and `days_to_expire <= 10` -> `FLAT_40_OFF`
 3. dead stock and high stock -> `BUY_2_GET_1`
-4. active but slow moving -> `BUNDLE`
-5. otherwise -> `NO_ACTION`
+4. active but slow-moving -> `BUNDLE`
+5. else -> `NO_ACTION`
 
-If a product is slow-moving and marked `BUNDLE`, bundle text is sourced from bundle suggestion generation.
-
-### Pricing breakdown rule
+### Pricing Breakdown
 
 `compute_pricing_breakdown()` returns:
 
@@ -160,21 +141,14 @@ If a product is slow-moving and marked `BUNDLE`, bundle text is sourced from bun
 - `effective_price`
 - `savings`
 
-Examples:
-
-- `BUY_1_GET_1` -> effective per-unit `50%` savings
-- `FLAT_40_OFF` -> direct `40%` off
-- `BUY_2_GET_1` -> effective `33%` off
-- `BUNDLE` -> indicative `10%` discount
-
-## 6. Local Setup
+## Quick Start
 
 ### Prerequisites
 
-- Python 3.10+
+- Python `3.10+`
 - `pip`
 
-### Install
+### Install Dependencies
 
 ```bash
 python -m venv .venv
@@ -182,57 +156,47 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 7. Running the Application
-
-### Start server
-
-```bash
-python run.py
-```
-
-Default URL:
-
-- Dashboard: `http://127.0.0.1:5000/`
-
-### Quick first run flow
+### Seed Demo Data
 
 ```bash
 python seed_sample_products.py --count 20 --reset
+```
+
+## Run the App
+
+```bash
 python run.py
 ```
 
-## 8. API Reference
+Open:
 
-All responses are JSON unless otherwise noted.
+- Dashboard: `http://127.0.0.1:5000/`
 
-### 8.1 Product APIs
+## API Reference
 
-Product blueprint is mounted at two prefixes:
+All responses are JSON.
+
+### Base Product Routes
+
+The same product handlers are available on both prefixes:
 
 - `/api/products`
 - `/products`
 
-Both routes expose the same handlers.
+### Endpoints
 
-#### Create product
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/products` or `/products` | Create product |
+| `GET` | `/api/products` or `/products` | List products with computed intelligence |
+| `PUT` | `/api/products/<id>` or `/products/<id>` | Update product |
+| `DELETE` | `/api/products/<id>` or `/products/<id>` | Delete product |
+| `GET` | `/dead-stock` | Dead stock status |
+| `GET` | `/dead-stock/discounts` | Discount recommendations |
+| `GET` | `/bundle-suggestions` | Bundle recommendations |
+| `GET` | `/dashboard-analytics` | Aggregated dashboard metrics |
 
-- Method: `POST`
-- Path: `/api/products` or `/products`
-
-Required body fields:
-
-- `name`
-- `category`
-- `price`
-- `stock_quantity`
-- `total_sales`
-- `expiry_date` (format: `YYYY-MM-DD`)
-
-Optional:
-
-- `last_sold_date` (format: `YYYY-MM-DD`)
-
-Example:
+### Create Product Example
 
 ```bash
 curl -X POST http://127.0.0.1:5000/api/products \
@@ -248,250 +212,97 @@ curl -X POST http://127.0.0.1:5000/api/products \
   }'
 ```
 
-#### Get product list with computed intelligence
-
-- Method: `GET`
-- Path: `/api/products` or `/products`
-
-Optional query params:
-
-- `sales_threshold` (float, default `10`)
-- `days_threshold` (float, default `15`)
-- `high_stock_threshold` (float, default `100`)
-
-Each product in response includes raw fields plus computed fields such as:
-
-- `days_unsold`
-- `days_to_expire`
-- `status`
-- `offer_type`
-- `message`
-- `suggestion`
-- `original_price`
-- `discount_pct`
-- `final_price`
-- `effective_price`
-- `savings`
-
-Example:
+### Product Listing Example
 
 ```bash
-curl "http://127.0.0.1:5000/products?sales_threshold=12&days_threshold=20"
+curl "http://127.0.0.1:5000/products?sales_threshold=12&days_threshold=20&high_stock_threshold=100"
 ```
 
-#### Update product
+## Frontend Dashboard
 
-- Method: `PUT`
-- Path: `/api/products/<product_id>` or `/products/<product_id>`
+Dashboard route `/` displays:
 
-Example:
+- top metric cards (total products, dead stock count, inventory value)
+- category filters (`All`, `Grocery`, `Dairy`, `Cold Drinks`, `Namkeen`)
+- urgency badges derived from `days_to_expire`
+- offer and pricing breakdown sections per product
+
+Data source for UI is `GET /products`.
+
+## Sample Data Generator
+
+Script: `seed_sample_products.py`
 
 ```bash
-curl -X PUT http://127.0.0.1:5000/api/products/1 \
-  -H "Content-Type: application/json" \
-  -d '{"price": 49.0, "stock_quantity": 75, "expiry_date": "2026-04-03"}'
+python seed_sample_products.py --count 30 --reset
 ```
 
-#### Delete product
+Options:
 
-- Method: `DELETE`
-- Path: `/api/products/<product_id>` or `/products/<product_id>`
+- `--count`: number of products, minimum enforced as `20`
+- `--reset`: clear existing records before insert
 
-Example:
-
-```bash
-curl -X DELETE http://127.0.0.1:5000/api/products/1
-```
-
-### 8.2 Dead stock status
-
-- Method: `GET`
-- Path: `/dead-stock`
-
-Query params:
-
-- `sales_threshold` (float, default `10`)
-- `days_threshold` (float, default `15`)
-
-Response row format:
-
-```json
-{
-  "product_name": "Amul Butter 100g",
-  "days_unsold": 21,
-  "status": "Dead Stock"
-}
-```
-
-### 8.3 Dead stock discount suggestions
-
-- Method: `GET`
-- Path: `/dead-stock/discounts`
-
-Query params:
-
-- `sales_threshold` (float, default `10`)
-- `days_threshold` (float, default `15`)
-- `high_stock_threshold` (float, default `100`)
-
-Response row format:
-
-```json
-{
-  "product_name": "Amul Butter 100g",
-  "recommended_discount": "25%"
-}
-```
-
-### 8.4 Bundle suggestions
-
-- Method: `GET`
-- Path: `/bundle-suggestions`
-
-Response row fields:
-
-- `category`
-- `product_a`
-- `product_b`
-- `reason`
-- `suggestion`
-
-Generation strategy:
-
-- keyword intent pairs first (frequently bought together style)
-- category-based fallback (lowest sales + highest sales in category)
-
-### 8.5 Dashboard analytics
-
-- Method: `GET`
-- Path: `/dashboard-analytics`
-
-Query params:
-
-- `sales_threshold` (float, default `10`)
-- `days_threshold` (float, default `15`)
-- `high_stock_threshold` (float, default `100`)
-
-Response format:
-
-```json
-{
-  "total_products": 20,
-  "dead_stock_count": 8,
-  "total_dead_stock_value": 11435.0,
-  "recovery_potential": 8720.25
-}
-```
-
-## 9. Frontend Behavior
-
-Route `/` renders `app/templates/index.html` and loads `app/static/js/app.js`.
-
-Key behavior:
-
-- fetches product intelligence from `GET /products`
-- shows top metrics: total products, dead stock count, total inventory value
-- renders category filters: `All`, `Grocery`, `Dairy`, `Cold Drinks`, `Namkeen`
-- computes urgency badges from `days_to_expire`
-- renders offer cards and pricing breakdown per product
-- supports manual refresh from the UI button
-
-Note: frontend total value currently uses all products from `/products`, not only dead stock.
-
-## 10. Data Seeding
-
-Use seeded products to quickly test scenarios.
-
-```bash
-python seed_sample_products.py --count 20 --reset
-```
-
-CLI arguments:
-
-- `--count`: minimum enforced as `20`
-- `--reset`: clears current `products` before insert
-
-Seeder characteristics:
+Seeder behavior:
 
 - categories: `grocery`, `dairy`, `cold_drinks`, `namkeen`
-- expiry tiers: near (1-3 days), mid (7-15 days), safe (20-40 days)
-- unique unsold-day and stock distributions in each run
-- realistic sales logic based on unsold days and category multipliers
+- expiry distribution tiers: near (1-3), mid (7-15), safe (20-40)
+- realistic sales and stock distributions for testing recommendations
 
-## 11. Daily Analysis Scheduler
+## Daily Analysis Scheduler
 
-Run simulated periodic analysis:
+Script: `daily_analysis_scheduler.py`
+
+Run continuously (daily interval):
 
 ```bash
 python daily_analysis_scheduler.py --interval-seconds 86400
 ```
 
-Quick test run:
+Local simulation run:
 
 ```bash
 python daily_analysis_scheduler.py --interval-seconds 5 --iterations 3
 ```
 
-Useful arguments:
+Arguments:
 
-- `--interval-seconds` (default `86400`)
-- `--iterations` (default: run forever)
+- `--interval-seconds`
+- `--iterations`
 - `--sales-threshold`
 - `--days-threshold`
 - `--high-stock-threshold`
 
-Each cycle:
+Output snapshot file:
 
-- runs dead stock analysis
-- writes snapshot JSON to `instance/daily_analysis_snapshot.json`
-- prints a timestamped log message
+- `instance/daily_analysis_snapshot.json`
 
-Snapshot shape:
+## Configuration
 
-```json
-{
-  "analyzed_at": "2026-03-22T10:30:00",
-  "total_products": 20,
-  "dead_stock_count": 8,
-  "rows": [
-    {
-      "product_name": "...",
-      "days_unsold": 34,
-      "status": "Dead Stock",
-      "suggestion": "Offer 30% discount"
-    }
-  ]
-}
-```
-
-## 12. Configuration
-
-`config.py`:
+`config.py` defaults:
 
 - `SQLALCHEMY_DATABASE_URI = "sqlite:///products.db"`
 - `SQLALCHEMY_TRACK_MODIFICATIONS = False`
 
-By default, SQLite DB is created in Flask instance path.
+## Troubleshooting
 
-## 13. Troubleshooting
+- Empty dashboard/API output:
+  - seed data with `python seed_sample_products.py --count 20 --reset`
+- `400` on create/update:
+  - date must be `YYYY-MM-DD`
+  - `price`, `stock_quantity`, and `total_sales` must be numeric
+  - include `expiry_date` in create payload
+- Old local DB missing `expiry_date`:
+  - restart app once to allow startup schema patch
+- Frontend unable to load data:
+  - verify backend is running on `127.0.0.1:5000`
 
-- Server starts but no products visible:
-  - Run `python seed_sample_products.py --count 20 --reset`
-- `400` on product creation:
-  - ensure required fields include `expiry_date`
-  - ensure date format is `YYYY-MM-DD`
-  - ensure `price`, `stock_quantity`, and `total_sales` are numeric
-- Existing DB missing `expiry_date`:
-  - restart app once; startup migration helper adds it
-- Frontend fetch error:
-  - verify backend is running at `http://127.0.0.1:5000`
+## Production Notes
 
-## 14. Deployment Notes
+For production readiness:
 
-For production-grade deployment, recommended upgrades are:
-
-- run behind Gunicorn + reverse proxy (Nginx)
-- move from SQLite to a managed relational DB
-- externalize config via environment variables
-- add structured logging + health checks
-- schedule `daily_analysis_scheduler.py` via system scheduler/worker
+- serve Flask with Gunicorn
+- place behind Nginx reverse proxy
+- move from SQLite to managed relational DB
+- add environment-based configuration
+- schedule analysis job via cron/worker
+- add tests and CI pipeline
