@@ -1,0 +1,19 @@
+{
+  "analyzed_at": "2026-03-22T13:44:06",
+  "total_products": 20,
+  "dead_stock_count": 2,
+  "rows": [
+    {
+      "product_name": "Sample Product A",
+      "days_unsold": 13,
+      "status": "Active",
+      "suggestion": "No action needed"
+    },
+    {
+      "product_name": "Sample Product B",
+      "days_unsold": 51,
+      "status": "Dead Stock",
+      "suggestion": "Offer 35% discount"
+    }
+  ]
+}

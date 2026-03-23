@@ -168,6 +168,13 @@ python seed_sample_products.py --count 20 --reset
 python run.py
 ```
 
+By default the app starts with `debug=False`. To enable debug mode, set the
+`FLASK_DEBUG` environment variable to `1` before starting:
+
+```bash
+FLASK_DEBUG=1 python run.py
+```
+
 Open:
 
 - Dashboard: `http://127.0.0.1:5000/`
@@ -296,6 +303,20 @@ Output snapshot file:
 - Frontend unable to load data:
   - verify backend is running on `127.0.0.1:5000`
 
+## Development & Testing
+
+Install dev dependencies and run the test suite:
+
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v
+```
+
+Tests cover the service layer (`discount_service`, `offer_service`,
+`pricing_service`, `bundle_service`) and run without a live Flask app or
+database. CI runs automatically on every push and pull request via
+`.github/workflows/ci.yml`.
+
 ## Production Notes
 
 For production readiness:
@@ -305,4 +326,3 @@ For production readiness:
 - move from SQLite to managed relational DB
 - add environment-based configuration
 - schedule analysis job via cron/worker
-- add tests and CI pipeline
