@@ -1,209 +1,276 @@
-# Finverse
+<div align="center">
 
-Finverse is a full-stack Flask project for retail inventory intelligence. It helps teams detect dead stock, prioritize expiring inventory, generate offer actions, and monitor recovery potential from a visual dashboard.
+# 🏦 Finserve
 
-## Highlights
+### Retail Inventory Intelligence Platform
 
-- Product CRUD APIs
-- Dead stock detection based on sales and unsold duration
-- Offer recommendation engine (`BUY_1_GET_1`, `FLAT_40_OFF`, `BUY_2_GET_1`, `BUNDLE`, `NO_ACTION`)
-- Bundle suggestion engine with keyword and category fallback logic
-- Dashboard analytics for stock health and recovery potential
-- Daily analysis snapshot generator for scheduled reporting
+[![CI](https://github.com/romin711/Finserve/actions/workflows/ci.yml/badge.svg)](https://github.com/romin711/Finserve/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-3.0.3-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-3.1.1-D71F00?logo=sqlalchemy&logoColor=white)](https://flask-sqlalchemy.palletsprojects.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Table of Contents
+*Detect dead stock, prioritize expiring inventory, generate intelligent offer actions, and monitor recovery potential — all from a single visual dashboard.*
 
-- [Architecture](#architecture)
-- [Project Structure](#project-structure)
-- [Data Model](#data-model)
-- [Business Rules](#business-rules)
-- [Quick Start](#quick-start)
-- [Run the App](#run-the-app)
-- [API Reference](#api-reference)
-- [Frontend Dashboard](#frontend-dashboard)
-- [Sample Data Generator](#sample-data-generator)
-- [Daily Analysis Scheduler](#daily-analysis-scheduler)
-- [Configuration](#configuration)
-- [Troubleshooting](#troubleshooting)
-- [Production Notes](#production-notes)
+</div>
 
-## Architecture
+---
 
-Finverse follows a clean layered structure:
+## 📑 Table of Contents
 
-- `routes/` handles HTTP request/response contracts
-- `services/` contains business logic and recommendation rules
-- `models.py` defines SQLAlchemy entities
-- `static/` + `templates/` provide the UI
+- [✨ Features](#-features)
+- [🛠 Tech Stack](#-tech-stack)
+- [🏗 Architecture](#-architecture)
+- [📁 Project Structure](#-project-structure)
+- [📊 Data Model](#-data-model)
+- [📐 Business Rules](#-business-rules)
+- [🚀 Quick Start](#-quick-start)
+- [▶️ Run the App](#️-run-the-app)
+- [📡 API Reference](#-api-reference)
+- [🖥 Frontend Dashboard](#-frontend-dashboard)
+- [🌱 Sample Data Generator](#-sample-data-generator)
+- [⏰ Daily Analysis Scheduler](#-daily-analysis-scheduler)
+- [⚙️ Configuration](#️-configuration)
+- [🔧 Troubleshooting](#-troubleshooting)
+- [🧪 Development & Testing](#-development--testing)
+- [🏭 Production Notes](#-production-notes)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
 
-Core flow:
+---
 
-1. Product data is stored in SQLite.
-2. APIs compute dead stock, urgency, offers, and pricing details.
-3. Frontend consumes `GET /products` and renders product intelligence cards.
-4. Scheduler can periodically persist analysis snapshots to JSON.
+## ✨ Features
 
-## Project Structure
+| Feature | Description |
+|---|---|
+| 📦 **Product CRUD APIs** | Full create / read / update / delete endpoints for product records |
+| 🪦 **Dead Stock Detection** | Flags products based on low sales and extended unsold duration |
+| 🏷 **Offer Recommendation Engine** | Automatically assigns `BUY_1_GET_1`, `FLAT_40_OFF`, `BUY_2_GET_1`, `BUNDLE`, or `NO_ACTION` |
+| 🎁 **Bundle Suggestion Engine** | Keyword and category fallback logic to suggest complementary bundles |
+| 📈 **Dashboard Analytics** | Aggregated metrics for stock health, recovery potential, and category distribution |
+| 🕐 **Daily Snapshot Scheduler** | Scheduled job that persists analysis snapshots to JSON for trend reporting |
 
-```text
-.
-|-- app/
-|   |-- __init__.py
-|   |-- extensions.py
-|   |-- models.py
-|   |-- routes/
-|   |   |-- product_routes.py
-|   |   |-- dead_stock_routes.py
-|   |   |-- bundle_routes.py
-|   |   |-- dashboard_routes.py
-|   |   `-- ui_routes.py
-|   |-- services/
-|   |   |-- analytics_service.py
-|   |   |-- bundle_service.py
-|   |   |-- daily_analysis_service.py
-|   |   |-- discount_service.py
-|   |   |-- offer_service.py
-|   |   |-- prediction_service.py
-|   |   `-- pricing_service.py
-|   |-- static/
-|   |   |-- css/styles.css
-|   |   `-- js/app.js
-|   `-- templates/
-|       `-- index.html
-|-- config.py
-|-- run.py
-|-- requirements.txt
-|-- seed_sample_products.py
-|-- daily_analysis_scheduler.py
-`-- instance/
-    `-- daily_analysis_snapshot.json
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Backend** | Python 3.10+, Flask 3.0.3 |
+| **ORM / DB** | Flask-SQLAlchemy 3.1.1, SQLite |
+| **Frontend** | Vanilla JS, CSS (served via Flask templates) |
+| **Testing** | pytest 8.0+ |
+| **CI/CD** | GitHub Actions |
+
+---
+
+## 🏗 Architecture
+
+Finserve follows a clean layered structure:
+
+| Layer | Responsibility |
+|---|---|
+| `routes/` | HTTP request / response contracts |
+| `services/` | Business logic and recommendation rules |
+| `models.py` | SQLAlchemy entity definitions |
+| `static/` + `templates/` | Frontend UI assets |
+
+**Core data flow:**
+
+```
+HTTP Request
+    │
+    ▼
+routes/          ← validates input, delegates to service
+    │
+    ▼
+services/        ← applies business rules (dead stock, offers, pricing)
+    │
+    ▼
+models.py        ← SQLAlchemy ORM ↔ SQLite
+    │
+    ▼
+JSON Response    ← enriched with computed fields
 ```
 
-## Data Model
+> The daily scheduler runs independently, consuming the same service layer and writing snapshots to `instance/daily_analysis_snapshot.json`.
 
-`Product` (`app/models.py`) fields:
+---
 
-- `id` (int, primary key)
-- `name` (string, required)
-- `category` (string, required)
-- `price` (float, required)
-- `stock_quantity` (int, required)
-- `last_sold_date` (date, optional)
-- `expiry_date` (date, optional in schema, required by create API)
-- `total_sales` (float, required)
+## 📁 Project Structure
 
-Computed output fields are also returned in API responses, including `days_unsold`, `days_to_expire`, `status`, `offer_type`, and pricing breakdown metrics.
+```text
+Finserve/
+├── app/
+│   ├── __init__.py               # App factory & startup schema patch
+│   ├── extensions.py             # SQLAlchemy instance
+│   ├── models.py                 # Product entity
+│   ├── routes/
+│   │   ├── product_routes.py
+│   │   ├── dead_stock_routes.py
+│   │   ├── bundle_routes.py
+│   │   ├── dashboard_routes.py
+│   │   └── ui_routes.py
+│   ├── services/
+│   │   ├── analytics_service.py
+│   │   ├── bundle_service.py
+│   │   ├── daily_analysis_service.py
+│   │   ├── discount_service.py
+│   │   ├── offer_service.py
+│   │   ├── prediction_service.py
+│   │   └── pricing_service.py
+│   ├── static/
+│   │   ├── css/styles.css
+│   │   └── js/app.js
+│   └── templates/
+│       └── index.html
+├── config.py
+├── run.py
+├── requirements.txt
+├── requirements-dev.txt
+├── seed_sample_products.py
+├── daily_analysis_scheduler.py
+├── conftest.py
+├── tests/
+└── instance/
+    └── daily_analysis_snapshot.json
+```
+
+---
+
+## 📊 Data Model
+
+### `Product` — `app/models.py`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `int` | Primary key, auto-increment |
+| `name` | `string` | Required |
+| `category` | `string` | Required |
+| `price` | `float` | Required |
+| `stock_quantity` | `int` | Required |
+| `last_sold_date` | `date` | Optional |
+| `expiry_date` | `date` | Optional in schema; required by create API |
+| `total_sales` | `float` | Required |
+
+**Computed fields** returned in API responses:
+
+`days_unsold` · `days_to_expire` · `status` · `offer_type` · `discount_pct` · `final_price` · `savings`
 
 ### Startup Schema Compatibility
 
-On startup, the app checks if the `products` table is missing `expiry_date`. If missing, it applies:
+On startup, the app automatically patches older databases that are missing the `expiry_date` column:
 
 ```sql
 ALTER TABLE products ADD COLUMN expiry_date DATE
 ```
 
-## Business Rules
+---
 
-### Dead Stock Criteria
+## 📐 Business Rules
 
-Product is marked dead stock when all are true:
+### 🪦 Dead Stock Criteria
 
-- `total_sales < sales_threshold` (default `10`)
-- `days_unsold > days_threshold` (default `15`)
-- `last_sold_date` exists
+A product is classified as dead stock when **all** of the following are true:
 
-### Discount Suggestion
+- `total_sales < sales_threshold` *(default: `10`)*
+- `days_unsold > days_threshold` *(default: `15`)*
+- `last_sold_date` is set
 
-`GET /dead-stock/discounts` rules:
+### 💸 Discount Suggestion — `GET /dead-stock/discounts`
 
-- `days_unsold > 30` -> `30%`
-- `15 <= days_unsold <= 30` -> `20%`
-- otherwise -> `10%`
-- if `stock_quantity > high_stock_threshold` (default `100`) -> `+5%`
+| Condition | Discount |
+|---|---|
+| `days_unsold > 30` | **30%** |
+| `15 ≤ days_unsold ≤ 30` | **20%** |
+| Otherwise | **10%** |
+| `stock_quantity > high_stock_threshold` *(default: 100)* | **+5% bonus** |
 
-### Offer Type Priority
+### 🏷 Offer Type Priority
 
-Applied in this order:
+Offers are assigned in the following priority order:
 
-1. dead stock and `days_to_expire <= 5` -> `BUY_1_GET_1`
-2. dead stock and `days_to_expire <= 10` -> `FLAT_40_OFF`
-3. dead stock and high stock -> `BUY_2_GET_1`
-4. active but slow-moving -> `BUNDLE`
-5. else -> `NO_ACTION`
+| Priority | Condition | Offer |
+|---|---|---|
+| 1 | Dead stock **and** `days_to_expire ≤ 5` | `BUY_1_GET_1` |
+| 2 | Dead stock **and** `days_to_expire ≤ 10` | `FLAT_40_OFF` |
+| 3 | Dead stock **and** high stock | `BUY_2_GET_1` |
+| 4 | Active but slow-moving | `BUNDLE` |
+| 5 | Otherwise | `NO_ACTION` |
 
-### Pricing Breakdown
+### 💰 Pricing Breakdown — `compute_pricing_breakdown()`
 
-`compute_pricing_breakdown()` returns:
+Returns: `original_price` · `discount_pct` · `final_price` · `effective_price` · `savings`
 
-- `original_price`
-- `discount_pct`
-- `final_price`
-- `effective_price`
-- `savings`
+---
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - Python `3.10+`
 - `pip`
 
-### Install Dependencies
+### 1. Clone & Install
 
 ```bash
+git clone https://github.com/romin711/Finserve.git
+cd Finserve
+
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
 pip install -r requirements.txt
 ```
 
-### Seed Demo Data
+### 2. Seed Demo Data
 
 ```bash
 python seed_sample_products.py --count 20 --reset
 ```
 
-## Run the App
+---
+
+## ▶️ Run the App
 
 ```bash
 python run.py
 ```
 
-By default the app starts with `debug=False`. To enable debug mode, set the
-`FLASK_DEBUG` environment variable to `1` before starting:
+By default the app starts with `debug=False`. To enable debug mode:
 
 ```bash
 FLASK_DEBUG=1 python run.py
 ```
 
-Open:
+Open the dashboard in your browser:
 
-- Dashboard: `http://127.0.0.1:5000/`
+```
+http://127.0.0.1:5000/
+```
 
-## API Reference
+---
+
+## 📡 API Reference
 
 All responses are JSON.
 
-### Base Product Routes
-
-The same product handlers are available on both prefixes:
-
-- `/api/products`
-- `/products`
+> **Note:** Product endpoints are available on both `/api/products` and `/products` prefixes.
 
 ### Endpoints
 
-| Method | Path | Purpose |
+| Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/products` or `/products` | Create product |
-| `GET` | `/api/products` or `/products` | List products with computed intelligence |
-| `PUT` | `/api/products/<id>` or `/products/<id>` | Update product |
-| `DELETE` | `/api/products/<id>` or `/products/<id>` | Delete product |
-| `GET` | `/dead-stock` | Dead stock status |
+| `POST` | `/api/products` | Create a new product |
+| `GET` | `/api/products` | List all products with computed intelligence |
+| `PUT` | `/api/products/<id>` | Update an existing product |
+| `DELETE` | `/api/products/<id>` | Delete a product |
+| `GET` | `/dead-stock` | Dead stock status list |
 | `GET` | `/dead-stock/discounts` | Discount recommendations |
-| `GET` | `/bundle-suggestions` | Bundle recommendations |
+| `GET` | `/bundle-suggestions` | Bundle pair recommendations |
 | `GET` | `/dashboard-analytics` | Aggregated dashboard metrics |
 
-### Create Product Example
+### Example: Create a Product
 
 ```bash
 curl -X POST http://127.0.0.1:5000/api/products \
@@ -219,110 +286,141 @@ curl -X POST http://127.0.0.1:5000/api/products \
   }'
 ```
 
-### Product Listing Example
+### Example: List Products with Custom Thresholds
 
 ```bash
 curl "http://127.0.0.1:5000/products?sales_threshold=12&days_threshold=20&high_stock_threshold=100"
 ```
 
-## Frontend Dashboard
+---
 
-Dashboard route `/` displays:
+## 🖥 Frontend Dashboard
 
-- top metric cards (total products, dead stock count, inventory value)
-- category filters (`All`, `Grocery`, `Dairy`, `Cold Drinks`, `Namkeen`)
-- urgency badges derived from `days_to_expire`
-- offer and pricing breakdown sections per product
+The dashboard at `http://127.0.0.1:5000/` provides:
 
-Data source for UI is `GET /products`.
+- **Metric cards** — total products, dead stock count, total inventory value
+- **Category filters** — All · Grocery · Dairy · Cold Drinks · Namkeen
+- **Urgency badges** — derived from `days_to_expire`
+- **Product cards** — offer type, pricing breakdown, and stock status per item
 
-## Sample Data Generator
+> Data source: `GET /products`
 
-Script: `seed_sample_products.py`
+---
+
+## 🌱 Sample Data Generator
 
 ```bash
 python seed_sample_products.py --count 30 --reset
 ```
 
-Options:
+| Option | Description |
+|---|---|
+| `--count` | Number of products to generate *(minimum: 20)* |
+| `--reset` | Clear existing records before insert |
 
-- `--count`: number of products, minimum enforced as `20`
-- `--reset`: clear existing records before insert
+The seeder generates products across `grocery`, `dairy`, `cold_drinks`, and `namkeen` categories with varied expiry tiers and realistic sales distributions.
 
-Seeder behavior:
+---
 
-- categories: `grocery`, `dairy`, `cold_drinks`, `namkeen`
-- expiry distribution tiers: near (1-3), mid (7-15), safe (20-40)
-- realistic sales and stock distributions for testing recommendations
+## ⏰ Daily Analysis Scheduler
 
-## Daily Analysis Scheduler
-
-Script: `daily_analysis_scheduler.py`
-
-Run continuously (daily interval):
+Run continuously with a daily interval:
 
 ```bash
 python daily_analysis_scheduler.py --interval-seconds 86400
 ```
 
-Local simulation run:
+Run a quick local simulation:
 
 ```bash
 python daily_analysis_scheduler.py --interval-seconds 5 --iterations 3
 ```
 
-Arguments:
+### Arguments
 
-- `--interval-seconds`
-- `--iterations`
-- `--sales-threshold`
-- `--days-threshold`
-- `--high-stock-threshold`
+| Argument | Description |
+|---|---|
+| `--interval-seconds` | Seconds between analysis runs |
+| `--iterations` | Total number of runs before exit *(omit for infinite)* |
+| `--sales-threshold` | Override default sales threshold |
+| `--days-threshold` | Override default days-unsold threshold |
+| `--high-stock-threshold` | Override default high-stock threshold |
 
-Output snapshot file:
+Output is written to `instance/daily_analysis_snapshot.json`.
 
-- `instance/daily_analysis_snapshot.json`
+---
 
-## Configuration
+## ⚙️ Configuration
 
 `config.py` defaults:
 
-- `SQLALCHEMY_DATABASE_URI = "sqlite:///products.db"`
-- `SQLALCHEMY_TRACK_MODIFICATIONS = False`
+| Key | Default |
+|---|---|
+| `SQLALCHEMY_DATABASE_URI` | `sqlite:///products.db` |
+| `SQLALCHEMY_TRACK_MODIFICATIONS` | `False` |
 
-## Troubleshooting
+---
 
-- Empty dashboard/API output:
-  - seed data with `python seed_sample_products.py --count 20 --reset`
-- `400` on create/update:
-  - date must be `YYYY-MM-DD`
-  - `price`, `stock_quantity`, and `total_sales` must be numeric
-  - include `expiry_date` in create payload
-- Old local DB missing `expiry_date`:
-  - restart app once to allow startup schema patch
-- Frontend unable to load data:
-  - verify backend is running on `127.0.0.1:5000`
+## 🔧 Troubleshooting
 
-## Development & Testing
+| Symptom | Fix |
+|---|---|
+| Empty dashboard or blank API response | Run `python seed_sample_products.py --count 20 --reset` |
+| `400 Bad Request` on create / update | Ensure dates are `YYYY-MM-DD`; `price`, `stock_quantity`, `total_sales` must be numeric; include `expiry_date` in create payload |
+| Old DB missing `expiry_date` column | Restart the app once — the startup schema patch applies automatically |
+| Frontend fails to load data | Confirm the backend is running on `127.0.0.1:5000` |
 
-Install dev dependencies and run the test suite:
+---
+
+## 🧪 Development & Testing
+
+Install dev dependencies and run the full test suite:
 
 ```bash
 pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
 
-Tests cover the service layer (`discount_service`, `offer_service`,
-`pricing_service`, `bundle_service`) and run without a live Flask app or
-database. CI runs automatically on every push and pull request via
-`.github/workflows/ci.yml`.
+Tests cover the service layer (`discount_service`, `offer_service`, `pricing_service`, `bundle_service`) and run without a live Flask app or database.
 
-## Production Notes
+CI runs automatically on every push and pull request via [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-For production readiness:
+---
 
-- serve Flask with Gunicorn
-- place behind Nginx reverse proxy
-- move from SQLite to managed relational DB
-- add environment-based configuration
-- schedule analysis job via cron/worker
+## 🏭 Production Notes
+
+> The following steps are recommended before deploying Finserve to a production environment.
+
+- **WSGI server** — serve Flask with [Gunicorn](https://gunicorn.org/)
+- **Reverse proxy** — place behind Nginx for TLS termination and static file serving
+- **Database** — migrate from SQLite to a managed relational database (PostgreSQL recommended)
+- **Configuration** — use environment variables or a secrets manager instead of hardcoded config
+- **Scheduling** — replace the standalone scheduler script with a cron job or a worker queue (e.g., Celery + Redis)
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/your-feature-name`
+3. **Commit** your changes with clear messages: `git commit -m "feat: add your feature"`
+4. **Push** to your fork: `git push origin feature/your-feature-name`
+5. **Open** a Pull Request describing your changes
+
+Please ensure all existing tests pass (`pytest tests/ -v`) before submitting.
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+<div align="center">
+
+Made with ❤️ by [romin711](https://github.com/romin711)
+
+</div>
