@@ -421,6 +421,6 @@ This project is licensed under the [MIT License](LICENSE).
 
 <div align="center">
 
-Made with ❤️ by [romin711](https://github.com/romin711)
+Made by [romin711](https://github.com/romin711)
 
 </div>
