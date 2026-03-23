@@ -1,0 +1,32 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Pytest cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Flask instance folder (runtime DBs, snapshots, etc.)
+instance/
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
